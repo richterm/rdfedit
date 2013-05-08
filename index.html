@@ -1,0 +1,1075 @@
+<!DOCTYPE html> 
+<html> 
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<link rel="stylesheet" href="lib/jquery.mobile-1.0rc1/jquery.mobile-1.0rc1.min.css" />
+		<title>Page Title</title> 
+		
+		<script type="text/javascript" src="lib/modernizr.custom.90506.js"></script>
+		
+		<script id="footerTemplate" type="text/x-jquery-tmpl">
+			<a href="" onclick="javascript:loadOntologyEntities()">Top Classes</a>
+		</script>
+		
+		<script id="footerEditTemplate" type="text/x-jquery-tmpl">
+			<a href="" data-role="button" class="btn_save_triple" data-inline="true">Save</a>
+			<a href="" data-role="button" class="btn_cancel_triple" data-inline="true">Cancel</a>
+			<a href="" data-role="button" class="btn_delete_triple" data-inline="true">Delete</a>
+		</script>
+		
+		<script id="footerAddIndividualTemplate" type="text/x-jquery-tmpl">
+			<a href="" data-role="button" class="btn_save_triple" data-inline="true">Save</a>
+			<a href="" data-role="button" class="btn_cancel_triple" data-inline="true">Cancel</a>
+		</script>
+		
+		<script id="urilisteItemTemplate" type="text/x-jquery-tmpl">
+			<li>
+				{{if type=='bnode'}}
+					<a data-role="button" onclick="javascript:loadOntologyEntities('_:${value}')">
+				{{else}}
+					<a data-role="button" onclick="javascript:loadOntologyEntities('${value}')">
+				{{/if}}
+					<span class="span_uri">${value}</span>
+				</a>
+			</li>
+		</script>
+		
+		<script id="urilisteListeTemplate" type="text/x-jquery-tmpl">
+			{{if $item.listdividertext}}
+				<li data-role="list-divider">${$item.listdividertext}</li>
+			{{/if}}
+			{{each(i, binding) bindings}}
+				{{tmpl(binding.o) "#urilisteItemTemplate"}}
+			{{/each}}
+		</script>
+		
+		<script id="topClassesTemplate" type="text/x-jquery-tmpl">
+			<ul data-role="listview" id="ul_uriliste" data-filter="true">
+				{{each(i, binding) bindings}}
+					{{if binding.s.type=='uri'}}
+						{{tmpl(binding.s) "#urilisteItemTemplate"}}
+					{{/if}}
+				{{/each}}
+			</ul>
+		</script>
+		
+		<script id="urilisteTemplate" type="text/x-jquery-tmpl">
+			<ul data-role="listview" id="ul_uriliste" data-filter="true">
+				
+			</ul>
+		</script>
+		
+		<script id="individualsTemplate" type="text/x-jquery-tmpl">
+			<li data-role="list-divider">Individuals</li>
+			{{each(i, binding) bindings}}
+				{{tmpl(binding.individual) "#urilisteItemTemplate"}}
+				
+			{{/each}}
+			<li>
+				<a data-role="button" onclick="javascript:addIndividual({ g: {}, s: {}, p: {value: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', type: 'uri' }, o: {value: ${JSON.stringify($item.subject_uri)}, type: 'uri'} })">
+				Add new
+				</a>
+			</li>
+		</script>
+
+		<script id="propertiesTemplate" type="text/x-jquery-tmpl">
+			<li data-role="list-divider">Property Assertions</li>
+			{{each(i, binding) bindings}}
+				<li class="li_property_assertion">
+					<a data-role="button" onclick="javascript:editTriple({ g: ${JSON.stringify(binding.g)}, s: { value: ${JSON.stringify($item.subject_uri)}, type: 'uri' }, p: ${JSON.stringify(binding.p)}, o: ${JSON.stringify(binding.o)} })">
+						<div class="div_propertyassertion_property">
+							<span class="span_uri">${binding.p.value}</span>
+							<br />
+						</div>
+						<div class="div_propertyassertion_object">
+							<span>
+							{{if binding.o.type=='uri'}}
+								<span class="span_uri">${binding.o.value}</span>
+							{{else (binding.o.type=='literal') || (binding.o.type=='typed-literal')}}
+								<em>
+									"${binding.o.value}"{{if binding.o['xml:lang']}}@${binding.o['xml:lang']}{{else binding.o.datatype}}^^<span class="span_uri">${binding.o.datatype}</span>{{/if}}
+								</em>
+							{{else}}
+								<span class="span_uri">_:${binding.o.value}</span>
+							{{/if}}
+							</span>
+						</div>
+					</a>
+				</li>
+			{{/each}}
+			<li>
+				<a data-role="button" onclick="javascript:editTriple( { g: {}, s: { value: ${JSON.stringify($item.subject_uri)}, type: 'uri' }, p: {}, o: {} } )">
+				Add new
+				</a>
+			</li>
+		</script>
+		
+		<script id="tripleTemplate" type="text/x-jquery-tmpl">
+			&lt;${s.value}&gt; &lt;${p.value}&gt;
+			{{if (o.type=="uri")}}
+				&lt;${o.value}&gt;
+			{{else (o.type=="literal")}}
+				"${encodeXMLChars(o.value)}"
+				{{if o['xml:lang']}}
+					@${o['xml:lang']}
+				{{/if}}
+			{{else  (o.type=="typed-literal")}}
+				"${encodeXMLChars(o.value)}"
+				^^&lt;${o.datatype}&gt;
+			{{else}}
+				&lt;_:${o.value}&gt;
+			{{/if}}
+			.
+		</script>
+		
+		<script id="languageTemplate" type="text/x-jquery-tmpl">
+			<option value="none">[none]</option>
+			{{each(i, binding) bindings}}
+				<option value="${binding.lang.value}">${binding.lang.value}</option>
+			{{/each}}
+		</script>
+		
+		<script id="datatypeTemplate" type="text/x-jquery-tmpl">
+			<option value="none">[none]</option>
+			{{each(i, binding) bindings}}
+				<option value="${binding.datatype.value}">${binding.datatype.value}</option>
+			{{/each}}
+		</script>
+		
+		<script id="addIndividualTemplate" type="text/x-jquery-tmpl">
+			<div data-role="fieldcontain">
+				<label for="input_individual_uri">Graph:</label>
+				<input type="text" value="" class="input_individual_graph" id="input_individual_graph" />
+			</div>
+			<div data-role="fieldcontain">
+				<label for="input_individual_uri">URI:</label>
+				<input type="text" value="" class="input_individual_uri" id="input_individual_uri" />
+			</div>
+			
+			<input type="checkbox" name="checkbox_lookup_uri" id="checkbox_lookup_uri" class="custom" checked="checked" />
+			<label for="checkbox_lookup_uri">Lookup URI</label>
+			
+			{{if $item.dsps.length>0}}
+				<label for="select_individual_dsp">Use Metadata Profile:</label>
+				<br />
+				<select name="select_individual_dsp" id="select_individual_dsp" data-native-menu="false" data-inline="true">
+					<option data-placeholder="true">Use Metadata Profile</option>
+					<option value="none" selected="selected">[none]</option>
+				{{each(i, binding) $item.dsps}}
+					<option value="${binding.dtempl.value}" class="span_uri">${binding.dtempl.value}</option>
+				{{/each}}
+				</select>
+			{{/if}}
+		</script>
+		
+		<script id="editFormTemplate" type="text/x-jquery-tmpl">
+			<form>
+				<div data-role="fieldcontain">
+					<label for="input_triple_graph">Graph:</label>
+					<input type="text" value="${g.value}" class="input_triple_graph" id="input_triple_graph" data-inline="true" />
+				</div>			
+				<div data-role="fieldcontain">
+					<label for="input_triple_subject">Subject:</label>
+					<input type="text" value="${s.value}" class="input_triple_subject" id="input_triple_subject" />
+				</div>
+				<div data-role="fieldcontain">
+					<label for="input_triple_predicate">Predicate:</label>
+					<input type="text" value="${p.value}" class="input_triple_predicate" id="input_triple_predicate" />
+				</div>
+				<div data-role="fieldcontain">
+					<label for="input_triple_object">Object:</label>
+					<input type="text" value="${o.value}" class="input_triple_object" id="input_triple_object" />
+				</div>
+				
+				<div data-role="fieldcontain">
+					<fieldset id="fieldset_object_type" data-role="controlgroup">
+						<legend>Object Type:</legend>
+						{{if o.type=='uri'}}
+							{{tmpl($item.data) "#editFormURITemplate"}}
+						{{else ((o.type=='literal') || (o.type=='typed-literal'))}}
+							{{tmpl($item.data) "#editFormLiteralTemplate"}}
+						{{else o.type=='bnode'}}
+							{{tmpl($item.data) "#editFormBNodeTemplate"}}
+						{{else}}
+							{{tmpl($item.data) "#editFormURITemplate"}}
+						{{/if}}
+					</fieldset>
+				</div>
+				
+				<div data-role="fieldcontain">
+					<label for="select_object_lang" class="select">Object Language:</label>
+					<select name="select_object_lang" id="select_object_lang" data-native-menu="true" data-inline="true">
+
+					</select>
+				</div>
+				
+				<div data-role="fieldcontain">
+					<label for="select_object_datatype" class="select">Object Datatype:</label>
+					<select name="select_object_datatype" id="select_object_datatype" data-native-menu="true" data-inline="true">
+
+					</select>
+				</div>
+			</form>
+		</script>
+		
+		<script id="editFormLiteralTemplate" type="text/x-jquery-tmpl">
+			<input type="radio" name="radio_editform_object_type" id="radio_editform_object_type_uri" value="uri" />
+			<label for="radio_editform_object_type_uri">URI</label>
+			
+			<input type="radio" name="radio_editform_object_type" id="radio_editform_object_type_literal" value="literal" checked="checked" />
+			<label for="radio_editform_object_type_literal">Literal</label>
+			
+			<input type="radio" name="radio_editform_object_type" id="radio_editform_object_type_bnode" value="bnode" />
+			<label for="radio_editform_object_type_bnode">BNode</label>
+		</script>
+		
+		<script id="editFormURITemplate" type="text/x-jquery-tmpl">
+			<input type="radio" name="radio_editform_object_type" id="radio_editform_object_type_uri" value="uri" checked="checked" />
+			<label for="radio_editform_object_type_uri">URI</label>
+			
+			<input type="radio" name="radio_editform_object_type" id="radio_editform_object_type_literal" value="literal" />
+			<label for="radio_editform_object_type_literal">Literal</label>
+			
+			<input type="radio" name="radio_editform_object_type" id="radio_editform_object_type_bnode" value="bnode" />
+			<label for="radio_editform_object_type_bnode">BNode</label>
+		</script>
+		
+		<script id="editFormBNodeTemplate" type="text/x-jquery-tmpl">
+			<input type="radio" name="radio_editform_object_type" id="radio_editform_object_type_uri" value="uri" />
+			<label for="radio_editform_object_type_uri">URI</label>
+			
+			<input type="radio" name="radio_editform_object_type" id="radio_editform_object_type_literal" value="literal" />
+			<label for="radio_editform_object_type_literal">Literal</label>
+			
+			<input type="radio" name="radio_editform_object_type" id="radio_editform_object_type_bnode" value="bnode" checked="checked" />
+			<label for="radio_editform_object_type_bnode">BNode</label>
+		</script>
+		
+		<script type="text/javascript">
+			function stripWhitespaces(string)
+			{
+				if(string!=null)
+				{
+					return(string.replace(/^\s+/g, '').replace(/\s+$/g, ''));
+				}
+			}
+		
+			function lookupDataForURI(uri, graph, URIonly)
+			{
+				uri=stripWhitespaces(uri);
+				var result={};
+				$.ajax('URILookup.php', { async: false, data: {uri: uri, format: 'json'}, dataType: 'json', success:
+					function(data)
+					{
+						if((URIonly==false))
+						{
+							result=data;
+						}
+						else
+						{	
+							if(data[uri]!=null)
+							{
+								result=data[uri];
+							}
+						}
+					}
+				});
+				return(result);
+			}
+			
+			function replaceURIWithLabel(uri)
+			{
+				uri=stripWhitespaces(uri);
+				var sparql_query="SELECT DISTINCT ?label WHERE { <"+uri+"> <http://www.w3.org/2000/01/rdf-schema#label> ?label . }";
+				$.ajax('sparql/index.php', { async: true, data: {query: sparql_query}, dataType: 'json', success:
+					function(data)
+					{
+						if(data.results.bindings.length>0)
+						{
+							$('.span_uri:contains("'+uri+'")').each(
+								function(index)
+								{
+									$(this).text($(this).text().replace(uri, data.results.bindings[0].label.value));
+								}
+							);
+						}
+					}
+				});
+				
+				return(uri);
+			}
+			
+			function replaceBaseURIsWithPrefixes()
+			{
+				var sparql_query="SELECT DISTINCT ?g ?label FROM <http://www.maximilian-richter.com/rdfedit/config/> WHERE { ?g <http://www.w3.org/2000/01/rdf-schema#label> ?label . }";
+				$.ajax('sparql/index.php', { async: false, data: {query: sparql_query}, dataType: 'json', success:
+					function(data)
+					{
+						if(data.results.bindings.length>0)
+						{
+							$('.span_uri').each(
+								function(index)
+								{
+									for(var i=0; i<data.results.bindings.length; i++)
+									{
+										if(($(this).text().indexOf(data.results.bindings[i].g.value)!=-1) && ($(this).text()!=data.results.bindings[i].g.value))
+										{
+											$(this).text($(this).text().replace(data.results.bindings[i].g.value, data.results.bindings[i].label.value+':'));
+										}
+									}
+								}
+							);
+						}
+					}
+				});
+			}
+			
+			function getTripleFromBinding(binding)
+			{
+				return($('#tripleTemplate').tmpl(binding).text().replace(/\s+/g, ' ').replace(/(["'])\s*([@^])/, '$1$2'));
+			}
+		
+			function deleteTriple(binding)
+			{
+				var sparql_query="DELETE FROM <"+binding.g.value+"> { "+getTripleFromBinding(binding)+" }";
+				$.post('sparql/index.php', { query: sparql_query, output: 'json'},
+					function(data)
+					{
+						//loadOntologyEntities(binding.s.value);
+					}
+				);
+			}
+			
+			function getEditFormFromBinding(binding)
+			{
+				return($('#editFormTemplate').tmpl(binding));
+			}
+			
+			function getBindingFromEditForm()
+			{
+				var result=
+					{
+						g:
+							{
+								value:
+									stripWhitespaces($('#input_triple_graph').val()),
+								type:
+									"uri"
+							},
+						s:
+							{
+								value:
+									stripWhitespaces($('#input_triple_subject').val()),
+								type:
+									"uri"
+							},
+						p:
+							{
+								value: 
+									stripWhitespaces($('#input_triple_predicate').val()),
+								type:
+									'uri'
+							},
+						o:
+							{
+								value:
+									stripWhitespaces($('#input_triple_object').val())
+							}
+					};
+					
+				switch($('input[name="radio_editform_object_type"]:checked').val())
+				{
+					case 'uri':
+						result.o.type='uri';
+						break;
+					case 'literal':
+						if($('#select_object_datatype').val()!='none')
+						{
+							result.o.type='typed-literal';
+							result.o.datatype=$('#select_object_datatype').val();
+						}
+						else
+						{
+							result.o.type='literal';
+						}
+						if($('#select_object_lang').val()!='none')
+						{
+							result.o['xml:lang']=$('#select_object_lang').val();
+						}
+						break;
+					case 'bnode':
+						break;
+					default:
+						alert('object type error!');
+						break;
+				}
+				return(result);
+			}
+			
+			function addIndividual(binding)
+			{
+				var sparql_query="SELECT distinct ?dtempl WHERE { { ?dtempl <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://purl.org/dc/dsp/DescriptionTemplate> . } { ?dtempl <http://purl.org/dc/dsp/resourceClass> <"+binding.o.value+"> . } }";
+				$.ajax('sparql/index.php', { async: false, data: {query: sparql_query}, dataType: 'json', success:
+					function(data)
+					{
+						$('#addIndividualTemplate').tmpl(binding, { dsps: data.results.bindings }).appendTo($('#page_landing_div_content').empty());
+						replaceBaseURIsWithPrefixes();
+						$('#select_individual_dsp').selectmenu();
+						$('#input_individual_uri').textinput();
+						$('#input_individual_graph').textinput().autocomplete({ source: autocomp_graph });
+						
+						$('#checkbox_lookup_uri').checkboxradio();
+						
+						$('#footerTemplate').tmpl().appendTo($('div[data-role="footer"]').empty());
+						$('#footerAddIndividualTemplate').tmpl().appendTo($('div[data-role="footer"]'));
+						
+						$('div[id="footer_landing"] a').buttonMarkup();
+						
+						$('.btn_save_triple').bind('click',
+							function()
+							{
+								binding.g.value=stripWhitespaces($('#input_individual_graph').val());
+								binding.g.type="uri";
+								binding.s.value=stripWhitespaces($('#input_individual_uri').val());
+								binding.s.type="uri";
+								
+								addTriple(binding);
+								$('.btn_save_triple').die('click');
+								$('.btn_cancel_triple').die('click');
+								$('.btn_delete_triple').die('click');
+								
+								var lookup=($('#checkbox_lookup_uri').attr('checked')=="checked") || ($('#checkbox_lookup_uri').attr('checked')==true);
+								var use_dsp=($('#select_individual_dsp option:selected').val()!=null) && ($('#select_individual_dsp option:selected').val()!='none');
+								
+								switch(lookup)
+								{
+									case true:
+										var looked_up_triples=null;
+										alert(binding.o.value);
+										if(binding.o.value=="http://www.w3.org/2004/03/trix/rdfg-1/Graph")
+										{
+											var tmp=lookupDataForURI(binding.s.value, binding.g.value, false);
+											$.map(tmp,
+												function(value, key)
+												{
+													if(key==binding.s.value)
+													{
+														looked_up_triples=value;
+													}
+													else
+													{
+														addTriples(binding.g.value, key, value, null);
+													}
+												}
+											);
+										}
+										else
+										{
+											looked_up_triples=lookupDataForURI(binding.s.value, binding.g.value);
+										}
+										
+										switch(use_dsp)
+										{
+											case true:
+												var fields=getStatementTemplatesForDescriptionTemplate($('#select_individual_dsp option:selected').val());
+												break;
+											case false:
+												var fields=null;
+												break;
+											default:
+												break;
+										}
+										addTriples(binding.g.value, binding.s.value, looked_up_triples, fields);
+										break;
+									case false:
+										var looked_up_triples=null;
+										switch(use_dsp)
+										{
+											case true:
+												var fields=getStatementTemplatesForDescriptionTemplate($('#select_individual_dsp option:selected').val());
+												break;
+											case false:
+												var fields=null;
+												break;
+											default:
+										}
+										addTriples(binding.g.value, binding.s.value, looked_up_triples, fields);
+										break;									
+									default:
+									
+								}
+								loadOntologyEntities(binding.s.value);
+							}
+						);
+						$('.btn_cancel_triple').bind('click',
+							function()
+							{
+								loadOntologyEntities(binding.o.value);
+								$('.btn_save_triple').die('click');
+								$('.btn_cancel_triple').die('click');
+								$('.btn_delete_triple').die('click');
+							}
+						);
+					}
+				});
+			}
+			
+			function addTriples(graph, uri, triples, fields)
+			{
+				uri=stripWhitespaces(uri);
+				graph=stripWhitespaces(graph);
+				if(triples!=null)
+				{
+					$.map(triples,
+						function(property, key)
+						{
+							if(fields==null)
+							{
+								$.map(property,
+									function(object, index)
+									{
+										var tmp={g: { value: graph, type: 'uri' }, s: { value: uri, type: 'uri' }, p: { value: key, type: 'uri' }, o: { value: object.value, type: object.type }};
+										addTriple(tmp);
+									}
+								);
+							}
+							else
+							{
+								$.map(property,
+									function(object, index)
+									{
+										if(fields['allowed'][key]!=null)
+										{
+											if((object.type==fields['allowed'][key]) || (fields['allowed'][key]=='both') || (((object.type=='uri') || (object.type=='bnode')) && fields['allowed'][key]=='non-literal'))
+											{
+												var tmp={g: { value: graph, type: 'uri' }, s: { value: uri, type: 'uri' }, p: { value: key, type: 'uri' }, o: { value: object.value, type: object.type }};
+												addTriple(tmp);
+											}
+										}
+									}
+								);
+							}
+						}
+					);
+				}
+				else
+				{
+					if(fields!=null)
+					{
+						$.map(fields['allowed'],
+							function(allowed_type, fieldname)
+							{
+								switch(allowed_type)
+								{
+									case 'both':
+									case 'literal':
+										addTriple({g: { value: graph, type: 'uri' }, s: { value: uri, type: 'uri' }, p: { value: fieldname, type: 'uri' }, o: { value: '', type: 'literal' }});
+										break;
+									case 'non-literal':
+										addTriple({g: { value: graph, type: 'uri' }, s: { value: uri, type: 'uri' }, p: { value: fieldname, type: 'uri' }, o: { value: 'http://example.org/dummy', type: 'uri' }});
+										break;
+									default:
+										break;
+								}
+							}
+						);
+					}
+				}
+			}
+			
+			function getStatementTemplatesForDescriptionTemplate(dtempl)
+			{
+				var result={ forbidden: [], allowed: {} };
+				
+				var sparql_query="SELECT DISTINCT ?prop ?minoccur ?maxoccur ?type WHERE { { <"+dtempl+"> <http://purl.org/dc/dsp/statementTemplate> ?stempl . } { ?stempl <http://purl.org/dc/dsp/property> ?prop . } OPTIONAL { ?stempl <http://purl.org/dc/dsp/minOccur> ?minoccur . } OPTIONAL { ?stempl <http://purl.org/dc/dsp/maxOccur> ?maxoccur . } OPTIONAL { ?stempl <http://purl.org/dc/dsp/type> ?type. } }";
+				$.ajax('sparql/index.php', { async: false, data: {query: sparql_query}, dataType: 'json', success:
+					function(data)
+					{
+						$.map(data.results.bindings,
+							function(element, index)
+							{
+								if((element.maxoccur!=null) && (Number(element.maxoccur.value)<=0))
+								{
+									result['forbidden'].push(element.prop.value);
+								}
+								else
+								{
+									if(element.type!=null)
+									{
+										result['allowed'][element.prop.value]=element.type.value;
+									}
+									else
+									{
+										result['allowed'][element.prop.value]='both';
+									}
+								}
+							}
+						);
+					}
+				});
+				return(result);
+			}
+			
+			function editTriple(binding)
+			{
+				$('#page_landing_div_content').empty().append(getEditFormFromBinding(binding));
+				
+				$('.input_triple_predicate').textinput().autocomplete({ source: autocomp_predicate, minLength: 2 });
+				$('.input_triple_graph').textinput().autocomplete({ source: autocomp_graph, minLength: 2 });
+				$('.input_triple_object').textinput();
+				$('.input_triple_subject').textinput();
+				$('#select_object_lang').selectmenu();
+				$('#select_object_datatype').selectmenu();
+				$('input[name="radio_editform_object_type"]').checkboxradio();
+				if(($('input[name="radio_editform_object_type"]:checked').val()!='literal') && ($('input[name="radio_editform_object_type"]:checked').val()!='typed-literal'))
+				{
+					$('#select_object_lang').selectmenu('disable');
+					$('#select_object_datatype').selectmenu('disable');
+					$('.input_triple_object').autocomplete({ source: autocomp_object, minLength: 2 });
+					$('.input_triple_subject').autocomplete({ source: autocomp_object, minLength: 2 });
+				}
+				$('input[name="radio_editform_object_type"]').change(
+					function()
+					{
+						if(($('input[name="radio_editform_object_type"]:checked').val()!='literal') && ($('input[name="radio_editform_object_type"]:checked').val()!='typed-literal'))
+						{
+							$('#select_object_lang').selectmenu('disable');
+							$('#select_object_datatype').selectmenu('disable');
+							$('.input_triple_object').autocomplete('enable');
+						}
+						else
+						{
+							$('#select_object_lang').selectmenu('enable');
+							$('#select_object_datatype').selectmenu('enable');
+							$('.input_triple_object').autocomplete('disable');
+						}
+					}
+				);				
+				
+				var sparql_query="SELECT ?lang WHERE { { ?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://psi.oasis-open.org/iso/639/#language> . } { ?s <http://psi.oasis-open.org/iso/639/#code-a2> ?lang . } }";
+				$.ajax('sparql/index.php', { async: false, data: {query: sparql_query}, dataType: 'json', success:
+					function(data)
+					{
+						$('#languageTemplate').tmpl(data.results).appendTo($('#select_object_lang'));
+						if(binding.o['xml:lang'])
+						{
+							$('#select_object_lang option[value="'+binding.o['xml:lang']+'"]').attr('selected', 'selected');
+						}
+						else
+						{
+							$('#select_object_lang option[value="none"]').attr('selected', 'selected');
+						}
+						$('#select_object_lang').selectmenu('refresh');
+					}
+				});
+				
+				var sparql_query="SELECT ?datatype FROM <http://www.w3.org/2001/XMLSchema#> WHERE { ?datatype <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2000/01/rdf-schema#Datatype> . }";
+				$.ajax('sparql/index.php', { async: false, data: {query: sparql_query}, dataType: 'json', success:
+					function(data)
+					{
+						$('#datatypeTemplate').tmpl(data.results).appendTo($('#select_object_datatype'));
+						if(binding.o.datatype)
+						{
+							$('#select_object_datatype option[value="'+binding.o.datatype+'"]').attr('selected', 'selected');
+						}
+						else
+						{
+							$('#select_object_datatype option[value="none"]').attr('selected', 'selected');
+						}
+						$('#select_object_datatype').selectmenu('refresh');
+					}
+				});
+				
+				$('#footerTemplate').tmpl().appendTo($('div[data-role="footer"]').empty());
+				$('#footerEditTemplate').tmpl().appendTo($('div[data-role="footer"]'));
+				$('div[id="footer_landing"] a').buttonMarkup();
+				
+				$('.btn_save_triple').bind('click',
+					function()
+					{
+						deleteTriple(binding);
+						addTriple(getBindingFromEditForm());
+						loadOntologyEntities(binding.s.value);
+						$('.btn_save_triple').die('click');
+						$('.btn_cancel_triple').die('click');
+						$('.btn_delete_triple').die('click');
+					}
+				);
+				$('.btn_cancel_triple').bind('click',
+					function()
+					{
+						loadOntologyEntities(binding.s.value);
+						$('.btn_save_triple').die('click');
+						$('.btn_cancel_triple').die('click');
+						$('.btn_delete_triple').die('click');
+					}
+				);
+				$('.btn_delete_triple').bind('click',
+					function()
+					{
+						deleteTriple(binding);
+						loadOntologyEntities(binding.s.value);
+						$('.btn_save_triple').die('click');
+						$('.btn_cancel_triple').die('click');
+						$('.btn_delete_triple').die('click');
+					}
+				);
+				$.mobile.silentScroll(0);
+			}
+			
+			function getPropertyURIsForRegex(regex)
+			{
+				var result=new Array();
+				
+				var sparql_query="SELECT DISTINCT ?p WHERE { { ?p <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property> . } UNION { ?p <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2000/01/rdf-schema#Property> } UNION { ?p <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2000/01/rdf-schema#ContainerMembershipProperty> } UNION { ?p <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2000/01/rdf-schema#AnnotationProperty> } UNION { ?p <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2000/01/rdf-schema#DatatypeProperty> } UNION { ?p <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2000/01/rdf-schema#DeprecatedProperty> } UNION { ?p <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2000/01/rdf-schema#FunctionalProperty> } UNION { ?p <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2000/01/rdf-schema#ObjectProperty> }  UNION { ?p <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2000/01/rdf-schema#OntologyProperty> }FILTER(REGEX(?p, '"+regex+"', 'i'))}";
+				$.ajax('sparql/index.php', { async: false, data: {query: sparql_query}, dataType: 'json', success:
+					function(data)
+					{
+						$.map(data.results.bindings,
+							function(element, index)
+							{
+								if(result.indexOf(element.p.value)==-1)
+								{
+									result.push(element.p.value);
+								}
+							}
+						);
+					}
+				});
+				
+				var sparql_query="SELECT DISTINCT ?p WHERE { { ?s ?p ?o . } FILTER(REGEX(?p, '"+regex+"', 'i'))}";
+				$.ajax('sparql/index.php', { async: false, data: {query: sparql_query}, dataType: 'json', success:
+					function(data)
+					{
+						$.map(data.results.bindings,
+							function(element, index)
+							{
+								if(result.indexOf(element.p.value)==-1)
+								{
+									result.push(element.p.value);
+								}
+							}
+						);
+					}
+				});
+				
+				
+				return(result);
+			}
+			
+			function encodeXMLChars(string)
+			{
+				return(string.replace(/["]/g, '\\"').replace(/[']/g, "\\'"));
+			}
+			
+			function addTriple(binding)
+			{
+				var sparql_query="INSERT INTO <"+binding.g.value+"> { "+getTripleFromBinding(binding)+" }";
+				$.ajax('sparql/index.php', { type: 'POST', async: false, data: {query: sparql_query}, dataType: 'json', success:
+					function(data)
+					{
+						//loadOntologyEntities(binding.s.value);
+					}
+				});				
+			}
+			
+			function autocomp_predicate(request, response)
+			{
+				response(getPropertyURIsForRegex(request.term));
+			}
+			
+			function autocomp_object(request, response)
+			{
+				response(getURIsForRegex(request.term));
+			}
+			
+			function getURIsForRegex(regex)
+			{
+				var result=new Array();
+				
+				var sparql_query="SELECT DISTINCT ?s WHERE { {?s ?p ?o . } FILTER(isURI(?s) && REGEX(?s, '"+regex+"', 'i'))}";
+				$.ajax('sparql/index.php', { async: false, data: {query: sparql_query}, dataType: 'json', success:
+					function(data)
+					{
+						$.map(data.results.bindings,
+							function(element, index)
+							{
+								if(result.indexOf(element.s.value)==-1)
+								{
+									result.push(element.s.value);
+								}
+							}
+						);
+					}
+				});
+				
+				var sparql_query="SELECT DISTINCT ?s WHERE { {?p ?p ?s . } FILTER(isURI(?s) && REGEX(?s, '"+regex+"', 'i'))}";
+				$.ajax('sparql/index.php', { async: false, data: {query: sparql_query}, dataType: 'json', success:
+					function(data)
+					{
+						$.map(data.results.bindings,
+							function(element, index)
+							{
+								if(result.indexOf(element.s.value)==-1)
+								{
+									result.push(element.s.value);
+								}
+							}
+						);
+					}
+				});
+				
+				var properties=getPropertyURIsForRegex(regex);
+				$.map(properties,
+					function(element, index)
+					{
+						if(result.indexOf(element)==-1)
+						{
+							result.push(element);
+						}
+					}
+				);
+				return(result);
+			}
+			
+			function autocomp_graph(request, response)
+			{
+				var sparql_query="SELECT DISTINCT ?g WHERE { GRAPH ?g {?s ?p ?o . } FILTER(REGEX(?g, '"+request.term+"')) }";
+				$.get('sparql/index.php', { query: sparql_query, output: 'json'},
+					function(data)
+					{
+						response($.map(data.results.bindings,
+							function(item)
+							{
+								return(item.g.value);
+							})
+						);
+					}
+				);
+			}
+			
+			function loadOntologyEntities(uri)
+			{
+				if(uri==null)
+				{
+					var sparql_query="SELECT DISTINCT ?s WHERE { { ?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> . } UNION { ?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2000/01/rdf-schema#Class> . } OPTIONAL {?s <http://www.w3.org/2000/01/rdf-schema#subClassOf> ?o} FILTER(!BOUND(?o)) } ORDER BY ?s";
+					$.ajax('sparql/index.php', { async: false, data: {query: sparql_query}, dataType: 'json', success:
+						function(data)
+						{
+							if(data.results.bindings.length>0)
+							{
+								$('#topClassesTemplate').tmpl(data.results).appendTo($('#page_landing_div_content').empty());
+								$('#ul_uriliste').listview();
+								$('#page_landing_header_title').text('RDFedit');
+							}
+						}
+					});
+				}
+				else
+				{
+					uri=stripWhitespaces(uri);
+					
+					if($('#ul_uriliste').size()!=0)
+					{
+						$('#ul_uriliste').empty();
+					}
+					
+					var superClasses=new Array();
+					var superProperties=new Array();
+					var types=new Array();
+					var types_plainlist=new Array();
+					var propertyAssertions=new Array();
+					
+					// Fetch property assertions for actual URI
+					var sparql_query="SELECT ?g ?p ?o WHERE { GRAPH ?g { <"+uri+"> ?p ?o . } } ORDER BY ?p ?o";
+					$.ajax('sparql/index.php', { async: false, data: {query: sparql_query}, dataType: 'json', success:
+						function(data)
+						{
+							for(var i=0; i<data.results.bindings.length; i++)
+							{
+								switch(data.results.bindings[i].p.value)
+								{
+									case "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
+										types.push(data.results.bindings[i]);
+										types_plainlist.push(data.results.bindings[i].o.value);
+										break;
+									case "http://www.w3.org/2000/01/rdf-schema#subClassOf":
+										superClasses.push(data.results.bindings[i]);
+										break;
+									case "http://www.w3.org/2000/01/rdf-schema#subPropertyOf":
+										superProperties.push(data.results.bindings[i]);
+										break;
+									default:
+										break;
+								}
+								propertyAssertions.push(data.results.bindings[i]);
+							}
+						}
+					});
+					
+					if(types.length>0)
+					{
+						if($('#ul_uriliste').size()==0)
+						{
+							$('#urilisteTemplate').tmpl({}).appendTo($('#page_landing_div_content').empty());
+							$('#ul_uriliste').listview();
+						}
+						$('#urilisteListeTemplate').tmpl({ bindings: types }, {listdividertext: 'Types'}).appendTo($('#ul_uriliste'));
+						$('#ul_uriliste').listview('refresh');
+					}
+					
+					if(arrayContainsOneOf(types_plainlist, new Array('http://www.w3.org/2000/01/rdf-schema#Class', 'http://www.w3.org/2002/07/owl#Class')))
+					{
+						if(superClasses.length>0)
+						{
+							if($('#ul_uriliste').size()==0)
+							{
+								$('#urilisteTemplate').tmpl({}).appendTo($('#page_landing_div_content').empty());
+								$('#ul_uriliste').listview();
+							}
+							$('#urilisteListeTemplate').tmpl({ bindings: superClasses }, {listdividertext: 'Super Classes'}).appendTo($('#ul_uriliste'));
+							$('#ul_uriliste').listview('refresh');
+						}
+						
+						var sparql_query="SELECT DISTINCT ?o WHERE { { ?o <http://www.w3.org/2000/01/rdf-schema#subClassOf> <"+uri+"> . } } ORDER BY ?o";
+						$.ajax('sparql/index.php', { async: false, data: {query: sparql_query}, dataType: 'json', success:
+							function(data)
+							{
+								if(data.results.bindings.length>0)
+								{
+									if($('#ul_uriliste').size()==0)
+									{
+										$('#urilisteTemplate').tmpl({}).appendTo($('#page_landing_div_content').empty());
+										$('#ul_uriliste').listview();
+									}
+									$('#urilisteListeTemplate').tmpl(data.results, {listdividertext: 'Sub Classes'}).appendTo($('#ul_uriliste'));
+									$('#ul_uriliste').listview('refresh');
+								}
+							}
+						});
+						
+						var sparql_query="SELECT DISTINCT ?individual WHERE { { ?individual <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <"+uri+"> . } } ORDER BY ?individual";
+						$.ajax('sparql/index.php', { async: false, data: {query: sparql_query}, dataType: 'json', success:
+							function(data)
+							{
+								if($('#ul_uriliste').size()==0)
+								{
+									$('#urilisteTemplate').tmpl({}).appendTo($('#page_landing_div_content').empty());
+									$('#ul_uriliste').listview();
+								}
+								$('#individualsTemplate').tmpl(data.results, { subject_uri: uri}).appendTo($('#ul_uriliste'));
+								$('#ul_uriliste').listview('refresh');
+							}
+						});
+					}
+					else
+					{
+						if(arrayContainsOneOf(types_plainlist, new Array('http://www.w3.org/1999/02/22-rdf-syntax-ns#Property', 'http://www.w3.org/2000/01/rdf-schema#Property', 'http://www.w3.org/2000/01/rdf-schema#ContainerMembershipProperty', 'http://www.w3.org/2000/01/rdf-schema#AnnotationProperty', 'http://www.w3.org/2000/01/rdf-schema#DatatypeProperty', 'http://www.w3.org/2000/01/rdf-schema#DeprecatedProperty', 'http://www.w3.org/2000/01/rdf-schema#FunctionalProperty', 'http://www.w3.org/2000/01/rdf-schema#ObjectProperty', 'http://www.w3.org/2000/01/rdf-schema#OntologyProperty')))
+						{
+							if(superProperties.length>0)
+							{
+								if($('#ul_uriliste').size()==0)
+								{
+									$('#urilisteTemplate').tmpl({}).appendTo($('#page_landing_div_content').empty());
+									$('#ul_uriliste').listview();
+								}
+								$('#urilisteListeTemplate').tmpl({ bindings: superProperties }, {listdividertext: 'Super Properties'}).appendTo($('#ul_uriliste'));
+								$('#ul_uriliste').listview('refresh');
+							}
+						
+							var sparql_query="SELECT DISTINCT ?o WHERE { { ?o <http://www.w3.org/2000/01/rdf-schema#subPropertyOf> <"+uri+"> . } } ORDER BY ?o";
+							$.ajax('sparql/index.php', { async: false, data: {query: sparql_query}, dataType: 'json', success:
+								function(data)
+								{
+									if(data.results.bindings.length>0)
+									{
+										if($('#ul_uriliste').size()==0)
+										{
+											$('#urilisteTemplate').tmpl({}).appendTo($('#page_landing_div_content').empty());
+											$('#ul_uriliste').listview();
+										}
+										$('#urilisteListeTemplate').tmpl(data.results, {listdividertext: 'Sub Properties'}).appendTo($('#ul_uriliste'));
+										$('#ul_uriliste').listview('refresh');
+									}
+								}
+							});
+						}
+					}
+					
+					if(propertyAssertions.length>0)
+					{
+						if($('#ul_uriliste').size()==0)
+						{
+							$('#urilisteTemplate').tmpl({}).appendTo($('#page_landing_div_content').empty());
+							$('#ul_uriliste').listview();
+						}
+						$('#propertiesTemplate').tmpl({ bindings: propertyAssertions }, { subject_uri: uri }).appendTo($('#ul_uriliste'));
+						
+						$('#ul_uriliste').listview('refresh');
+					}
+					$('#page_landing_header_title').html("<span class=\"span_uri\">"+uri+"</span>");
+				}
+				
+				replaceBaseURIsWithPrefixes();
+				$.mobile.silentScroll(0);
+				$('#footerTemplate').tmpl().appendTo($('div[data-role="footer"]').empty());
+				$('div[data-role="footer"] a').buttonMarkup();
+			}
+			
+			function arrayContainsOneOf(array, elements)
+			{
+				if($.isArray(array) && $.isArray(elements))
+				{
+					var result=false;
+					for(var i=0; i<elements.length; i++)
+					{
+						if($.inArray(elements[i], array)!=-1)
+						{
+							result=true;
+							break;
+						}
+					}
+					return(result);
+				}
+				else
+				{
+					return(null);
+				}
+			}
+			
+			Modernizr.load(
+				[
+					{
+						load:
+							[
+								'lib/jquery/jquery-1.6.2.min.js',
+								'lib/jquery/jquery.tmpl.min.js',
+								'lib/jquery/jquery-ui-autocomp.css',
+								'lib/jquery.mobile-1.0rc1/jquery.mobile-1.0rc1.min.js',
+								'lib/jquery/jquery-ui-1.8.16.custom.min.js'
+							],
+						complete:
+							function()
+							{
+								loadOntologyEntities(null);
+							}
+					}
+				]
+			);
+		</script>
+	</head> 
+	<body> 
+		<div data-role="page" data-title="RDFedit" id="page_landing">
+			<div data-role="header" data-position="fixed">
+				<h1 id="page_landing_header_title">RDFedit</h1>
+			</div>
+			<div data-role="content" id="page_landing_div_content">	
+				
+			</div>
+			<div data-role="footer" data-position="fixed" id="footer_landing">
+				
+			</div>
+		</div>
+	</body>
+</html>
